@@ -1,0 +1,121 @@
+{
+  "data": {
+    "nodes": [
+      {
+        "id": "ChatInput-abc01",
+        "data": {
+          "node": {
+            "display_name": "Chat Input",
+            "description": "User message",
+            "template": {
+              "input_value": { "value": "Research the top 3 AI hiring trends for a founder audience", "type": "str" }
+            }
+          },
+          "type": "ChatInput"
+        },
+        "position": { "x": 0, "y": 0 }
+      },
+      {
+        "id": "SwarmsAgent-001",
+        "data": {
+          "node": {
+            "display_name": "Team Member",
+            "description": "One AI teammate. Give it a role and a job description. Connect multiple to build a team.",
+            "template": {
+              "agent_name": { "value": "Researcher" },
+              "system_prompt": { "value": "You are a market researcher. Find 3 credible trends with sources. Be concise." },
+              "brain": { "value": "Auto (local-first)" }
+            }
+          },
+          "type": "SwarmsAgent"
+        },
+        "position": { "x": 200, "y": 0 }
+      },
+      {
+        "id": "SwarmsAgent-002",
+        "data": {
+          "node": {
+            "display_name": "Team Member",
+            "template": {
+              "agent_name": { "value": "Analyst" },
+              "system_prompt": { "value": "You are an analyst. Synthesize research into insight for founders: opportunity, risk, action." },
+              "brain": { "value": "Auto (local-first)" }
+            }
+          },
+          "type": "SwarmsAgent"
+        },
+        "position": { "x": 200, "y": 150 }
+      },
+      {
+        "id": "SwarmsAgent-003",
+        "data": {
+          "node": {
+            "display_name": "Team Member",
+            "template": {
+              "agent_name": { "value": "Writer" },
+              "system_prompt": { "value": "You are a writer for founders. Write a short LinkedIn post from the analysis. Friendly, no jargon." },
+              "brain": { "value": "Auto (local-first)" }
+            }
+          },
+          "type": "SwarmsAgent"
+        },
+        "position": { "x": 200, "y": 300 }
+      },
+      {
+        "id": "SwarmsSequentialWorkflow-001",
+        "data": {
+          "node": {
+            "display_name": "Assembly Line",
+            "description": "Work passes from one teammate to the next. Perfect for Research → Write → Review.",
+            "template": {
+              "task": { "value": "" }
+            }
+          },
+          "type": "SwarmsSequentialWorkflow"
+        },
+        "position": { "x": 500, "y": 100 }
+      },
+      {
+        "id": "ChatOutput-xyz01",
+        "data": { "node": { "display_name": "Chat Output" }, "type": "ChatOutput" },
+        "position": { "x": 800, "y": 100 }
+      }
+    ],
+    "edges": [
+      {
+        "source": "ChatInput-abc01",
+        "target": "SwarmsSequentialWorkflow-001",
+        "data": { "sourceHandle": { "name": "message" }, "targetHandle": { "fieldName": "task" } },
+        "id": "e1"
+      },
+      {
+        "source": "SwarmsAgent-001",
+        "target": "SwarmsSequentialWorkflow-001",
+        "data": { "sourceHandle": { "name": "agent" }, "targetHandle": { "fieldName": "agents" } },
+        "id": "e2"
+      },
+      {
+        "source": "SwarmsAgent-002",
+        "target": "SwarmsSequentialWorkflow-001",
+        "data": { "sourceHandle": { "name": "agent" }, "targetHandle": { "fieldName": "agents" } },
+        "id": "e3"
+      },
+      {
+        "source": "SwarmsAgent-003",
+        "target": "SwarmsSequentialWorkflow-001",
+        "data": { "sourceHandle": { "name": "agent" }, "targetHandle": { "fieldName": "agents" } },
+        "id": "e4"
+      },
+      {
+        "source": "SwarmsSequentialWorkflow-001",
+        "target": "ChatOutput-xyz01",
+        "data": { "sourceHandle": { "name": "result" }, "targetHandle": { "fieldName": "input_value" } },
+        "id": "e5"
+      }
+    ],
+    "viewport": { "x": 0, "y": 0, "zoom": 0.8 }
+  },
+  "is_component": false,
+  "name": "Swarms Market Research",
+  "description": "Hire an AI team to research your market — Researcher → Analyst → Writer. Local-first, no key needed with Ollama."
+}

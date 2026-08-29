@@ -1,0 +1,119 @@
+{
+  "data": {
+    "nodes": [
+      {
+        "id": "ChatInput-cs01",
+        "data": {
+          "node": {
+            "display_name": "Chat Input",
+            "template": { "input_value": { "value": "Topic: local-first AI teams for founders — turn into 3 LinkedIn posts", "type": "str" } }
+          },
+          "type": "ChatInput"
+        },
+        "position": { "x": 0, "y": 50 }
+      },
+      {
+        "id": "SwarmsAgent-csA",
+        "data": {
+          "node": {
+            "display_name": "Team Member",
+            "template": {
+              "agent_name": { "value": "Writer — Story" },
+              "system_prompt": { "value": "You are a story-driven LinkedIn writer for founders. Turn the topic into a hook + story + takeaway post." },
+              "brain": { "value": "Auto (local-first)" }
+            }
+          },
+          "type": "SwarmsAgent"
+        },
+        "position": { "x": 200, "y": 0 }
+      },
+      {
+        "id": "SwarmsAgent-csB",
+        "data": {
+          "node": {
+            "display_name": "Team Member",
+            "template": {
+              "agent_name": { "value": "Writer — Data" },
+              "system_prompt": { "value": "You are a data-driven LinkedIn writer. Turn the topic into a post with 3 numbers + insight + CTA." },
+              "brain": { "value": "Auto (local-first)" }
+            }
+          },
+          "type": "SwarmsAgent"
+        },
+        "position": { "x": 200, "y": 150 }
+      },
+      {
+        "id": "SwarmsAgent-csC",
+        "data": {
+          "node": {
+            "display_name": "Team Member",
+            "template": {
+              "agent_name": { "value": "Writer — Contrarian" },
+              "system_prompt": { "value": "You are a contrarian LinkedIn writer. Challenge common advice on the topic with a strong POV post." },
+              "brain": { "value": "Auto (local-first)" }
+            }
+          },
+          "type": "SwarmsAgent"
+        },
+        "position": { "x": 200, "y": 300 }
+      },
+      {
+        "id": "SwarmsAgent-csCrit",
+        "data": {
+          "node": {
+            "display_name": "Team Member",
+            "template": {
+              "agent_name": { "value": "Critic" },
+              "system_prompt": { "value": "You are an editor. Pick the best of 3 posts and polish it for clarity. Output one final post." },
+              "brain": { "value": "Auto (local-first)" }
+            }
+          },
+          "type": "SwarmsAgent"
+        },
+        "position": { "x": 500, "y": 150 }
+      },
+      {
+        "id": "SwarmsConcurrent-001",
+        "data": {
+          "node": {
+            "display_name": "Think Tank",
+            "description": "Everyone works at the same time, then you compare answers. Great for brainstorming or voting.",
+            "template": { "task": { "value": "" } }
+          },
+          "type": "SwarmsConcurrentWorkflow"
+        },
+        "position": { "x": 500, "y": 50 }
+      },
+      {
+        "id": "SwarmsSequential-002",
+        "data": {
+          "node": {
+            "display_name": "Assembly Line",
+            "description": "Work passes from one teammate to the next. Perfect for Research → Write → Review.",
+            "template": { "task": { "value": "" } }
+          },
+          "type": "SwarmsSequentialWorkflow"
+        },
+        "position": { "x": 750, "y": 100 }
+      },
+      {
+        "id": "ChatOutput-csOut",
+        "data": { "node": { "display_name": "Chat Output" }, "type": "ChatOutput" },
+        "position": { "x": 1000, "y": 100 }
+      }
+    ],
+    "edges": [
+      { "source": "ChatInput-cs01", "target": "SwarmsConcurrent-001", "data": { "sourceHandle": { "name": "message" }, "targetHandle": { "fieldName": "task" } }, "id": "e1" },
+      { "source": "SwarmsAgent-csA", "target": "SwarmsConcurrent-001", "data": { "sourceHandle": { "name": "agent" }, "targetHandle": { "fieldName": "agents" } }, "id": "e2" },
+      { "source": "SwarmsAgent-csB", "target": "SwarmsConcurrent-001", "data": { "sourceHandle": { "name": "agent" }, "targetHandle": { "fieldName": "agents" } }, "id": "e3" },
+      { "source": "SwarmsAgent-csC", "target": "SwarmsConcurrent-001", "data": { "sourceHandle": { "name": "agent" }, "targetHandle": { "fieldName": "agents" } }, "id": "e4" },
+      { "source": "SwarmsConcurrent-001", "target": "SwarmsSequential-002", "data": { "sourceHandle": { "name": "result" }, "targetHandle": { "fieldName": "task" } }, "id": "e5" },
+      { "source": "SwarmsAgent-csCrit", "target": "SwarmsSequential-002", "data": { "sourceHandle": { "name": "agent" }, "targetHandle": { "fieldName": "agents" } }, "id": "e6" },
+      { "source": "SwarmsSequential-002", "target": "ChatOutput-csOut", "data": { "sourceHandle": { "name": "result" }, "targetHandle": { "fieldName": "input_value" } }, "id": "e7" }
+    ],
+    "viewport": { "x": 0, "y": 0, "zoom": 0.75 }
+  },
+  "is_component": false,
+  "name": "Swarms Content Studio",
+  "description": "Turn one topic into 3 LinkedIn posts — Think Tank brainstorms in parallel, Critic picks the best. Local-first."
+}

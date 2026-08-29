@@ -1,0 +1,44 @@
+[project]
+name = "lfx-swarms"
+version = "0.1.0"
+description = "Swarms components as a standalone Langflow Extension Bundle."
+readme = "README.md"
+requires-python = ">=3.10,<3.15"
+license = { text = "MIT" }
+authors = [
+    { name = "Langflow", email = "contact@langflow.org" },
+]
+keywords = ["langflow", "lfx", "extension", "bundle", "swarms"]
+
+dependencies = [
+    "lfx>=1.12.0.dev0,<2.0.0",
+    "swarms>=8.9.1",
+    "litellm",
+]
+
+[project.urls]
+Homepage = "https://github.com/langflow-ai/langflow"
+Documentation = "https://docs.langflow.org/extensions"
+Repository = "https://github.com/langflow-ai/langflow"
+
+[project.entry-points."langflow.extensions"]
+lfx-swarms = "lfx_swarms"
+
+[build-system]
+requires = ["hatchling==1.31.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/lfx_swarms"]
+include = [
+    "src/lfx_swarms/extension.json",
+    "src/lfx_swarms/components/**/*.py",
+]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/lfx_swarms",
+    "extension.json",
+    "README.md",
+    "pyproject.toml",
+]

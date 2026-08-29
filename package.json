@@ -1,5 +1,9 @@
 {
   "devDependencies": {
     "@types/node": "^25.5.0"
+  },
+  "dependencies": {
+    "@workflow-worlds/turso": "^0.2.2",
+    "workflow": "^4.8.5"
   }
 }

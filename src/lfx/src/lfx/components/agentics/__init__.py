@@ -16,17 +16,23 @@ if TYPE_CHECKING:
     from .agenerate_component import AgenerateComponent
     from .amap_component import AMapComponent
     from .areduce_component import AreduceComponent
+    from .concurrent_workflow import ConcurrentWorkflowComponent
+    from .sequential_workflow import SequentialWorkflowComponent
 
 _dynamic_imports = {
     "AgenerateComponent": "agenerate_component",
     "AMapComponent": "amap_component",
     "AreduceComponent": "areduce_component",
+    "ConcurrentWorkflowComponent": "concurrent_workflow",
+    "SequentialWorkflowComponent": "sequential_workflow",
 }
 
 __all__ = [
     "AMapComponent",
     "AgenerateComponent",
     "AreduceComponent",
+    "ConcurrentWorkflowComponent",
+    "SequentialWorkflowComponent",
 ]
 
 

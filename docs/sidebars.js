@@ -491,6 +491,7 @@ module.exports = {
           items: [
             "Components/components-bundles",
             "Components/bundles-agentics",
+            "components/agentics/swarm-workflows",
             "Components/bundles-aiml",
             "Components/bundles-altk",
             "Components/bundles-amazon",

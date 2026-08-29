@@ -1,243 +1,91 @@
 # AGENTS.md
 
-This file provides guidance to AI coding agents when working with code in this repository.
-
-## Project Overview
-
-Langflow is a visual workflow builder for AI-powered agents. It has a Python/FastAPI backend, React/TypeScript frontend, and a lightweight executor CLI (lfx).
+Langflow is a visual AI workflow builder. Python/FastAPI backend + React 19/TypeScript frontend + lightweight `lfx` executor. Monorepo managed by `uv` workspaces and `make`.
 
 ## Prerequisites
 
-- **Python:** 3.10-3.14
-- **uv:** >=0.4 (Python package manager)
-- **Node.js:** >=20.19.0 (v22.12 LTS recommended)
-- **npm:** v10.9+
-- **make:** For build coordination
+- Python 3.10–3.14, `uv >=0.4`, Node >=20.19.0 (22.12 LTS recommended), npm >=10.9, `make`
+- Always use `uv run <cmd>` for Python (ensures venv + pre-commit hooks). Bare `python`/`pytest` will miss deps.
+- Sub-package tests need their dev group: `uv sync --group dev --package langflow-base` (same for `lfx`). Top-level `uv sync` alone leaves `fakeredis` etc. uninstalled.
 
-## Common Commands
+## Commands
 
-### Development Setup
 ```bash
-make init              # Install all dependencies + pre-commit hooks
-make run_cli           # Build and run Langflow (http://localhost:7860)
-make run_clic          # Clean build and run (use when frontend issues occur)
-```
+make init                # install backend+frontend deps + pre-commit hooks (first setup)
+make run_cli             # build frontend + run on :7860 (quick run from source)
+make run_clic            # clean frontend build then run (use when frontend stale)
+make backend             # dev FastAPI on :7860 (hot reload)
+make frontend            # Vite dev on :3000 (run alongside backend)
 
-### Development Mode (Hot Reload)
-```bash
-make backend           # FastAPI on port 7860 (terminal 1)
-make frontend          # Vite dev server on port 3000 (terminal 2)
-```
+# component dev — prebuilt index is default; dynamic loading only with LFX_DEV:
+LFX_DEV=1 make backend
+LFX_DEV=openai,anthropic make backend  # load only listed modules (faster)
+# without LFX_DEV, rebuild index after component changes:
+uv run python scripts/build_component_index.py
 
-For component development, enable dynamic loading:
-```bash
-LFX_DEV=1 make backend                    # Load all components dynamically
-LFX_DEV=mistral,openai make backend       # Load only specific modules
-```
+make format_backend      # ruff check --fix + ruff format
+make format_frontend     # biome check --write (src/frontend/biome.json)
+make format              # both
+make lint                # currently stub — prints "No type checker configured. See PR #12448"
+uv run mypy --namespace-packages -p langflow  # manual typecheck (CI runs mypy matrix 3.10–3.14)
 
-### Code Quality
-```bash
-make format_backend    # Format Python (ruff) - run FIRST before lint
-make format_frontend   # Format TypeScript (biome)
-make format            # Both
-make lint              # mypy type checking
-```
-
-### Testing
-```bash
-make unit_tests                    # Backend unit tests (pytest, parallel)
-make unit_tests async=false        # Sequential tests
-uv run pytest path/to/test.py      # Single test file
-uv run pytest path/to/test.py::test_name  # Single test
-
+make unit_tests                    # pytest src/backend/tests/unit, parallel (-n auto), skips api_key_required
+make unit_tests async=false        # sequential
+uv run pytest src/backend/tests/unit/test_foo.py -v        # single file
+uv run pytest src/backend/tests/unit/test_foo.py::test_bar # single test
 make test_frontend                 # Jest unit tests
-make tests_frontend                # Playwright e2e tests
+make tests_frontend                # Playwright e2e
+
+make alembic-revision message="Add X"  # cd src/backend/base/langflow && alembic revision --autogenerate
+make alembic-upgrade               # upgrade head
+make alembic-downgrade             # downgrade -1
+make patch v=1.12.1               # bump version in pyproject.toml, src/backend/base/pyproject.toml, lfx, frontend
 ```
 
-### Database Migrations
-```bash
-make alembic-revision message="Description"  # Create migration
-make alembic-upgrade                         # Apply migrations
-make alembic-downgrade                       # Rollback one version
+## Monorepo Structure
+
+```
+src/backend/base/langflow/  → langflow-base (API, services, graph engine, components, alembic)
+src/frontend/               → React + Vite + Zustand + @xyflow/react + Tailwind
+src/lfx/                    → lfx package (shared execution primitives, `lfx serve`/`lfx run`)
+src/langflow-core/          → provider-free distribution (owns `langflow` CLI)
+src/bundles/*/              → curated provider integrations (lfx-openai, lfx-anthropic, etc.)
+src/backend/tests/          → backend tests (unit + integration)
 ```
 
-## Architecture
+Dependency direction: `langflow → langflow-core → langflow-base → lfx`. Bundles only via `langflow` (not `langflow-core`). Workspace members declared in root `pyproject.toml` `[tool.uv.workspace]`.
 
-### Monorepo Structure
-```
-src/
-├── backend/
-│   ├── base/langflow/     # Core backend package (langflow-base)
-│   │   ├── api/           # FastAPI routes (v1/, v2/)
-│   │   ├── components/    # Built-in Langflow components
-│   │   ├── services/      # Service layer (auth, database, cache, etc.)
-│   │   ├── graph/         # Flow graph execution engine
-│   │   └── custom/        # Custom component framework
-│   └── tests/             # Backend tests
-├── frontend/              # React/TypeScript UI
-│   └── src/
-│       ├── components/    # UI components
-│       ├── stores/        # Zustand state management
-│       └── icons/         # Component icons
-├── langflow-core/         # Usable provider-free Langflow distribution
-├── bundles/               # Curated provider integrations
-└── lfx/                   # Lightweight executor and shared primitives
-```
+Entrypoints: `langflow` CLI via `langflow-core`, `lfx` CLI via `src/lfx/src/lfx/__main__.py`, FastAPI app in `src/backend/base/langflow/`.
 
-### Key Packages
-- **langflow**: Full end-user package; depends on `langflow-core` and curated provider bundles
-- **langflow-core**: Service-complete, provider-bundle-free distribution; owns the `langflow` CLI
-- **langflow-base**: Modular application platform (API, services, graph engine); extras add service integrations
-- **lfx**: Shared execution primitives and standalone CLI (`lfx serve`, `lfx run`)
+## Quirks & Gotchas
 
-The public dependency direction is `langflow → langflow-core → langflow-base → lfx`.
-Provider packages under `src/bundles/` are added only by the full `langflow` distribution.
+- **Pre-commit** runs ruff, biome, `detect-secrets` (.secrets.baseline), migration validators, component-env-writes check on `git commit`. Must commit with `uv run git commit ...`. To avoid an extra cycle: `make format_backend` before staging, then `uv run git commit`.
+- **Generated artifacts**: `src/lfx/src/lfx/_assets/component_index.json` is built by `scripts/build_component_index.py` and enables fast startup (~10ms). Starter projects in `src/backend/base/langflow/initial_setup/starter_projects/*.json` are reformatted on `langflow run` — don't treat as dirty.
+- **Lockfiles**: `uv.lock` and `src/frontend/package-lock.json` change on `make` targets; don't commit them. Use `git update-index --assume-unchanged uv.lock src/frontend/package-lock.json` to ignore locally.
+- **`make lint` is currently a no-op** (typecheck disabled, PR #12448). Don't rely on it for verification.
+- **Env loading**: `make backend` runs `scripts/setup/setup_env.sh` and reads `.env` (see `.env.example` for `LANGFLOW_DATABASE_URL`, `LANGFLOW_CONFIG_DIR`). Backend kill step uses `lsof -t -i:7860`.
+- **Frontend proxy** is `http://localhost:7860` (vite.config.mts). Dev needs both terminals (backend :7860 + frontend :3000).
 
-### Service Layer
-Backend services in `src/backend/base/langflow/services/`:
-- `auth/` - Authentication
-- `authorization/` - Authorization (RBAC) plugin layer — see below
-- `database/` - SQLAlchemy models and migrations
-- `cache/` - Caching layer
-- `storage/` - File storage
-- `tracing/` - Observability integrations
+## Migrations
 
-### Authorization (RBAC)
-
-Authorization is a pluggable layer separate from authentication:
-
-- **OSS** ships the interface (`BaseAuthorizationService` in `lfx`) + a pass-through implementation (`LangflowAuthorizationService`) + the `authz_*` and `casbin_rule` DB schema + route guards.
-- Implementations register via the `lfx.services` entry point `authorization_service` in `lfx.toml` (same pattern as the SSO `auth_service`). A registered plugin reads the `authz_*` admin tables and writes compiled rules to `casbin_rule`.
-
-Default is **off**: `LANGFLOW_AUTHZ_ENABLED=false`. When enabled with only the OSS stub registered, every check returns allow — the stub is a no-op so routes stay wired and audit rows still flow. Real allow/deny requires a registered authorization plugin.
-
-Route guards live in `langflow.services.authorization.guards` (the legacy `langflow.services.authorization.utils` path re-exports them for backward compatibility):
-- `ensure_flow_permission(user, FlowAction.*, flow_id=..., flow_user_id=..., workspace_id=..., folder_id=...)` — single-flow CRUD + execute
-- `ensure_deployment_permission(user, DeploymentAction.*, deployment_id=..., deployment_user_id=..., workspace_id=..., project_id=...)`
-- `ensure_project_permission(user, ProjectAction.*, project_id=..., project_user_id=..., workspace_id=...)`
-- `ensure_knowledge_base_permission(user, KnowledgeBaseAction.*, kb_name=..., kb_user_id=...)`
-- `ensure_variable_permission(user, VariableAction.*, variable_id=..., variable_user_id=...)`
-- `ensure_file_permission(user, FileAction.*, file_id=..., file_user_id=...)`
-- `ensure_share_permission(user, ShareAction.*, share_id=..., share_user_id=...)`
-- `filter_visible_resources(user, resource_type=..., candidates=..., act=...)` — list-endpoint filter; safe no-op in OSS
-
-The enforcement request shape is `(subject, domain, object, action)`:
-- subject = `user:{uuid}`
-- domain = `project:{uuid}` → `workspace:{uuid}` → `*` (resolved by `_resolve_flow_domain`; the more specific domain wins so project-scoped grants match directly while workspace-scoped grants still flow down via plugin-side role inheritance)
-- object = `flow:{uuid}` / `deployment:{uuid}` / `project:{uuid}` / `flow:*` / etc.
-- action = `read` / `write` / `create` / `delete` / `execute` / `deploy`
-
-**Share-aware fetch (Phase 3):** route fetch helpers (`_read_flow`, `get_flow_by_id_or_endpoint_name`, `get_deployment`, project reads in `projects.py`, v2 file fetcher, variable PATCH/DELETE in `variable.py`) branch on `BaseAuthorizationService.supports_cross_user_fetch()`. The OSS pass-through reports `False` so the existing owner-scoped queries are preserved — enabling `LANGFLOW_AUTHZ_ENABLED=true` without a registered plugin cannot widen visibility. Plugins set `SUPPORTS_CROSS_USER_FETCH=True` so resources load by id alone and `ensure_*_permission` decides access; route handlers can convert a plugin-deny `HTTPException(403)` to `HTTPException(404)` via `langflow.services.authorization.fetch.deny_to_404` to preserve UUID privacy.
-
-**Share CRUD API (Phase 3):** `/api/v1/authz/shares` provides POST / GET / PATCH / DELETE on `authz_share` rows. The handler enforces an OSS floor (resource owner or superuser may administer shares for that resource) so the OSS pass-through cannot let a non-owner mint share rows. Each write fires `BaseAuthorizationService.invalidate_user` / `invalidate_all` so a registered enforcer can drop cached policy. Audit rows are written via `audit_decision` with `share:create` / `share:update` / `share:delete` actions.
-
-**Audit query API (Phase 4):** `GET /api/v1/authz/audit` (superuser-only) exposes a paginated, filterable view of `authz_audit_log`. Supports `user_id`, `resource_type`, `resource_id`, `action`, `result`, `since`, `until` filters; page size capped at 200.
-
-**Default role catalog (Phase 4):** the consolidated foundations migration `7c8d9e0f1a2b_authz_foundations` seeds the three built-in `is_system=True` roles (viewer / developer / admin) with `"{resource}:{action}"` permission slugs. OSS does not interpret these — they exist so a registered plugin's policy sync has a stable bootstrap source.
-
-## Component Development
-
-Components live in `src/backend/base/langflow/components/`. To add a new component:
-
-1. Create component class inheriting from `Component`
-2. Define `display_name`, `description`, `icon`, `inputs`, `outputs`
-3. Add to `__init__.py` (alphabetical order)
-4. Run with `LFX_DEV=1 make backend` for hot reload
-
-**IMPORTANT:** Changing a component's class name is a breaking change and should never be done. The class name serves as an identifier used to match components in saved flows and to flag them for updates in the UI. Renaming it will break existing flows that use that component.
-
-### Component Structure
-```python
-from langflow.custom import Component
-from langflow.io import MessageTextInput, Output
-
-class MyComponent(Component):
-    display_name = "My Component"
-    description = "What it does"
-    icon = "component-icon"  # Lucide icon name or custom
-
-    inputs = [
-        MessageTextInput(name="input_value", display_name="Input"),
-    ]
-    outputs = [
-        Output(display_name="Output", name="output", method="process"),
-    ]
-
-    def process(self) -> Message:
-        # Component logic
-        return Message(text=self.input_value)
-```
-
-### Component Testing
-Tests go in `src/backend/tests/unit/components/`. Use base classes:
-- `ComponentTestBaseWithClient` - Components needing API access
-- `ComponentTestBaseWithoutClient` - Pure logic components
-
-Required fixtures: `component_class`, `default_kwargs`, `file_names_mapping`
-
-## Frontend Development
-
-- **React 19** + TypeScript + Vite
-- **Zustand** for state management
-- **@xyflow/react** for graph visualization
-- **Tailwind CSS** for styling
-
-### Custom Icons
-1. Create SVG component in `src/frontend/src/icons/YourIcon/`
-2. Export with `forwardRef` and `isDark` prop support
-3. Add to `lazyIconImports.ts`
-4. Set `icon = "YourIcon"` in Python component
+- Alembic lives in `src/backend/base/langflow/alembic/` (versions + `env.py` + `migration_validator.py`).
+- Pre-commit validates every migration file has `Phase: EXPAND|MIGRATE|CONTRACT` header and enforces bare-name uniqueness + append-only for `src/lfx/src/lfx/extension/migration/migration_table.json` and `BUNDLE_API.md` changelog gate.
+- Create with `make alembic-revision message="..."`, never hand-edit `versions/` without the validator.
 
 ## Testing Notes
 
-- `@pytest.mark.api_key_required` - Tests requiring external API keys
-- `@pytest.mark.no_blockbuster` - Skip blockbuster plugin
-- Database tests may fail in batch but pass individually
-- Pre-commit hooks require `uv run git commit`
-- Always use `uv run` when running Python commands
-- When running tests inside a sub-package (e.g. `langflow-base`, `lfx`), sync that package's dev group first: `uv sync --group dev --package langflow-base`. The default `uv sync` only resolves the top-level workspace and may leave dev-only test deps (e.g. `fakeredis`) uninstalled.
+- Markers: `@pytest.mark.api_key_required` (needs external keys), `@pytest.mark.no_blockbuster`, `real_services` (needs `LANGFLOW_TEST_DATABASE_URI` + `LANGFLOW_TEST_REDIS_URL`).
+- DB tests (`test_database.py`) can fail in parallel batch but pass individually — rerun that file sequentially if flaky.
+- Prefer real integrations over mocking (project convention). Graph tests: build graph → `.set()` edges → `async_start` + iterate → validate results.
+- Frontend `make test_frontend` = Jest, `make tests_frontend` = Playwright. CI path-filters jobs (python/frontend/docs/components) and skips draft PRs; `fast-track` label skips tests.
 
-### Graph Testing Pattern
+## Authorization (RBAC) — condensed
 
-Proper Graph tests follow this pattern:
-1. Build graph with connected components
-2. Connect them via `.set()` calls
-3. Call `async_start` and iterate over the results
-4. Validate the results
+- Pluggable; default off (`LANGFLOW_AUTHZ_ENABLED=false`). OSS ships `BaseAuthorizationService` (in `lfx`) + pass-through `LangflowAuthorizationService` + `authz_*`/`casbin_rule` schema + guards in `langflow.services.authorization.guards` (`ensure_flow_permission`, `ensure_project_permission`, etc.).
+- Register via `lfx.services` entry-point `authorization_service` in `lfx.toml`. Enforces `(subject=user:{uuid}, domain=project:{uuid}→workspace:{uuid}→*, object=flow:{uuid}|..., action=read/write/create/delete/execute/deploy)`.
+- Cross-user fetch gated by `supports_cross_user_fetch()` (OSS = false, preserves owner-scoped queries). Share CRUD at `/api/v1/authz/shares`, audit at `GET /api/v1/authz/audit` (superuser, max 200). System roles `viewer/developer/admin` seeded in migration `7c8d9e0f1a2b`.
 
-### Testing Best Practices
+## Workflow
 
-- Avoid mocking in tests when possible
-- Prefer real integrations for more reliable tests
-
-## Version Management
-```bash
-make patch v=1.5.0  # Update version across all packages
-```
-
-This updates: `pyproject.toml`, `src/backend/base/pyproject.toml`, `src/frontend/package.json`
-
-## Pre-commit Workflow
-
-Pre-commit hooks run ruff and biome automatically on `git commit`, so manual
-formatting is not required. To avoid an extra commit cycle when you have many
-changes:
-
-1. Run `make format_backend` once before staging - fixes most ruff issues up front.
-2. Run `uv run git commit` (the `uv run` ensures pre-commit finds the right Python).
-3. If you touched backend code, run `make unit_tests` locally for faster feedback than CI.
-
-## Pull Request Guidelines
-
-- Follow [semantic commit conventions](https://www.conventionalcommits.org/)
-- Reference any issues fixed (e.g., `Fixes #1234`)
-- Ensure all tests pass before submitting
-
-## Documentation
-
-Documentation uses Docusaurus and lives in `docs/`:
-```bash
-cd docs
-yarn install
-yarn start        # Dev server on port 3000 (prompts for 3001 if 3000 is in use)
-```
+- PRs target the active `release-X.Y.Z` branch, not `main` (see CONTRIBUTING.md). Title must be conventional-commit and not end with `...`/`…` (CI rejects). Reference issues (`Fixes #1234`).
+- CI concurrency cancels in-progress on same ref; nightly `.devN` publish health gates merges.

@@ -1,0 +1,90 @@
+{
+  "data": {
+    "nodes": [
+      {
+        "id": "ChatInput-st01",
+        "data": {
+          "node": {
+            "display_name": "Chat Input",
+            "template": { "input_value": { "value": "Feedback: 'The app is slow on login, and billing shows wrong total' — sort and draft replies", "type": "str" } }
+          },
+          "type": "ChatInput"
+        },
+        "position": { "x": 0, "y": 100 }
+      },
+      {
+        "id": "SwarmsAgent-stCls",
+        "data": {
+          "node": {
+            "display_name": "Team Member",
+            "template": {
+              "agent_name": { "value": "Classifier" },
+              "system_prompt": { "value": "You are a support classifier. Label each piece of feedback: bug, billing, feature_request. Output JSON." },
+              "brain": { "value": "Auto (local-first)" }
+            }
+          },
+          "type": "SwarmsAgent"
+        },
+        "position": { "x": 200, "y": 0 }
+      },
+      {
+        "id": "SwarmsAgent-stPri",
+        "data": {
+          "node": {
+            "display_name": "Team Member",
+            "template": {
+              "agent_name": { "value": "Prioritizer" },
+              "system_prompt": { "value": "You are a prioritizer for founders. From classified feedback, rank P0/P1/P2 and explain why." },
+              "brain": { "value": "Auto (local-first)" }
+            }
+          },
+          "type": "SwarmsAgent"
+        },
+        "position": { "x": 200, "y": 150 }
+      },
+      {
+        "id": "SwarmsAgent-stDrf",
+        "data": {
+          "node": {
+            "display_name": "Team Member",
+            "template": {
+              "agent_name": { "value": "Drafter" },
+              "system_prompt": { "value": "You are a support drafter. Write a short, empathetic reply for each prioritized item. Founder-friendly tone." },
+              "brain": { "value": "Auto (local-first)" }
+            }
+          },
+          "type": "SwarmsAgent"
+        },
+        "position": { "x": 200, "y": 300 }
+      },
+      {
+        "id": "SwarmsSequential-st01",
+        "data": {
+          "node": {
+            "display_name": "Assembly Line",
+            "description": "Work passes from one teammate to the next. Perfect for Research → Write → Review.",
+            "template": { "task": { "value": "" } }
+          },
+          "type": "SwarmsSequentialWorkflow"
+        },
+        "position": { "x": 500, "y": 100 }
+      },
+      {
+        "id": "ChatOutput-stOut",
+        "data": { "node": { "display_name": "Chat Output" }, "type": "ChatOutput" },
+        "position": { "x": 800, "y": 100 }
+      }
+    ],
+    "edges": [
+      { "source": "ChatInput-st01", "target": "SwarmsSequential-st01", "data": { "sourceHandle": { "name": "message" }, "targetHandle": { "fieldName": "task" } }, "id": "e1" },
+      { "source": "SwarmsAgent-stCls", "target": "SwarmsSequential-st01", "data": { "sourceHandle": { "name": "agent" }, "targetHandle": { "fieldName": "agents" } }, "id": "e2" },
+      { "source": "SwarmsAgent-stPri", "target": "SwarmsSequential-st01", "data": { "sourceHandle": { "name": "agent" }, "targetHandle": { "fieldName": "agents" } }, "id": "e3" },
+      { "source": "SwarmsAgent-stDrf", "target": "SwarmsSequential-st01", "data": { "sourceHandle": { "name": "agent" }, "targetHandle": { "fieldName": "agents" } }, "id": "e4" },
+      { "source": "SwarmsSequential-st01", "target": "ChatOutput-stOut", "data": { "sourceHandle": { "name": "result" }, "targetHandle": { "fieldName": "input_value" } }, "id": "e5" }
+    ],
+    "viewport": { "x": 0, "y": 0, "zoom": 0.8 }
+  },
+  "is_component": false,
+  "name": "Swarms Support Triage",
+  "description": "Sort and draft replies to feedback — Classifier → Prioritizer → Drafter. Local-first AI team for founder support."
+}

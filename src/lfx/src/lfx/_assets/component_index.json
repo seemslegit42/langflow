@@ -1135,6 +1135,296 @@
             }
           },
           "tool_mode": false
+        },
+        "ConcurrentWorkflow": {
+          "base_classes": [
+            "Message"
+          ],
+          "beta": false,
+          "conditional_paths": [],
+          "custom_fields": {},
+          "description": "Parallel — Team Members brainstorm the same task at the same time, then you compare the combined answers. Great for brainstorming or voting.",
+          "display_name": "Think Tank",
+          "documentation": "https://docs.swarms.world/api/concurrent-workflow",
+          "edited": false,
+          "field_order": [
+            "agents",
+            "task",
+            "max_loops"
+          ],
+          "frozen": false,
+          "icon": "Swarms",
+          "legacy": false,
+          "metadata": {
+            "code_hash": "eb1ff31d58c4",
+            "dependencies": {
+              "dependencies": [
+                {
+                  "name": "lfx",
+                  "version": null
+                }
+              ],
+              "total_dependencies": 1
+            },
+            "module": "lfx.components.agentics.concurrent_workflow.ConcurrentWorkflowComponent"
+          },
+          "minimized": false,
+          "output_types": [],
+          "outputs": [
+            {
+              "allows_loop": false,
+              "cache": true,
+              "display_name": "Final Result",
+              "group_outputs": false,
+              "method": "build_workflow",
+              "name": "final_result",
+              "selected": "Message",
+              "tool_mode": true,
+              "types": [
+                "Message"
+              ],
+              "value": "__UNDEFINED__"
+            }
+          ],
+          "pinned": false,
+          "template": {
+            "_type": "Component",
+            "agents": {
+              "_input_type": "HandleInput",
+              "advanced": false,
+              "api_editable": false,
+              "display_name": "Your Team (drag Team Members here)",
+              "dynamic": false,
+              "info": "Drag 2+ Team Members here. They will all work in parallel on the same task.",
+              "input_types": [
+                "Agent"
+              ],
+              "list": true,
+              "list_add_label": "Add More",
+              "name": "agents",
+              "override_skip": false,
+              "placeholder": "",
+              "required": true,
+              "show": true,
+              "title_case": false,
+              "trace_as_metadata": true,
+              "track_in_telemetry": false,
+              "type": "other",
+              "value": ""
+            },
+            "code": {
+              "advanced": true,
+              "api_editable": false,
+              "dynamic": true,
+              "fileTypes": [],
+              "file_path": "",
+              "info": "",
+              "list": false,
+              "load_from_db": false,
+              "multiline": true,
+              "name": "code",
+              "password": false,
+              "placeholder": "",
+              "required": true,
+              "show": true,
+              "title_case": false,
+              "type": "code",
+              "value": "\"\"\"Think Tank — parallel fan-out over a team of agents.\n\nEveryone works on the same task at the same time, then you compare the\ncombined answers. Great for brainstorming or voting. Mirrors the\nlfx-swarms ConcurrentWorkflow pattern standalone in lfx.\n\"\"\"\n\nfrom __future__ import annotations\n\nimport json\nfrom concurrent.futures import ThreadPoolExecutor\nfrom typing import Any\n\nfrom lfx.custom.custom_component.component import Component\nfrom lfx.inputs.inputs import HandleInput, IntInput, MessageTextInput\nfrom lfx.io import Output\nfrom lfx.schema.message import Message\n\n\ndef _to_message(value: Any) -> Message:\n    \"\"\"Normalize agent output to Message — mirrors swarms + agentics helpers.\n\n    - Message -> pass through\n    - dict -> json.dumps (preserves structure, avoids str(dict) single-quotes)\n    - list -> json.dumps if items are dicts else str join\n    - else -> Message(text=str(value))\n    \"\"\"\n    if isinstance(value, Message):\n        return value\n    if isinstance(value, dict):\n        return Message(text=json.dumps(value, ensure_ascii=False, indent=2))\n    if isinstance(value, list):\n        try:\n            return Message(text=json.dumps(value, ensure_ascii=False, indent=2))\n        except (TypeError, ValueError):\n            return Message(text=\"\\n\".join(str(v) for v in value))\n    return Message(text=str(value))\n\n\nclass ConcurrentWorkflowComponent(Component):\n    \"\"\"Everyone works at the same time, then you compare answers. Great for brainstorming or voting.\"\"\"\n\n    display_name = \"Think Tank\"\n    description = (\n        \"Parallel — Team Members brainstorm the same task at the same time, \"\n        \"then you compare the combined answers. Great for brainstorming or voting.\"\n    )\n    documentation = \"https://docs.swarms.world/api/concurrent-workflow\"\n    icon = \"Swarms\"\n    name = \"ConcurrentWorkflow\"\n\n    inputs = [\n        HandleInput(\n            name=\"agents\",\n            display_name=\"Your Team (drag Team Members here)\",\n            info=\"Drag 2+ Team Members here. They will all work in parallel on the same task.\",\n            input_types=[\"Agent\"],\n            is_list=True,\n            required=True,\n        ),\n        MessageTextInput(\n            name=\"task\",\n            display_name=\"What should the team do?\",\n            info=\"One clear instruction — everyone tackles it at once.\",\n            placeholder=\"Brainstorm 3 different taglines for a local-first AI team product.\",\n            required=True,\n        ),\n        IntInput(\n            name=\"max_loops\",\n            display_name=\"Max loops\",\n            info=\"How many times each teammate should loop on the task.\",\n            value=1,\n            advanced=True,\n        ),\n    ]\n\n    outputs = [\n        Output(name=\"final_result\", display_name=\"Final Result\", method=\"build_workflow\"),\n    ]\n\n    def _run_one(self, agent: Any) -> Message:\n        \"\"\"Run one agent's run(task), returning its normalized Message output.\"\"\"\n        run = getattr(agent, \"run\", None)\n        if run is None:\n            msg = f\"Agent {agent!r} does not expose a run() method.\"\n            raise ValueError(msg)\n        result = run(self.task)\n        return _to_message(result)\n\n    def build_workflow(self) -> Message:\n        if not self.agents:\n            msg = \"Add at least two Team Members to the Think Tank.\"\n            raise ValueError(msg)\n        if not self.task or not self.task.strip():\n            msg = \"Tell the team what to do — fill in 'What should the team do?'.\"\n            raise ValueError(msg)\n\n        each: list[dict[str, Any]] = []\n        with ThreadPoolExecutor(max_workers=len(self.agents)) as executor:\n            futures = [executor.submit(self._run_one, agent) for agent in self.agents]\n            for agent, future in zip(self.agents, futures, strict=False):\n                result = future.result()\n                each.append({\"agent\": agent, \"result\": result})\n\n        self.status = each\n        final_text = \"\\n---\\n\".join(item[\"result\"].text for item in each)\n        return Message(text=final_text)\n"
+            },
+            "max_loops": {
+              "_input_type": "IntInput",
+              "advanced": true,
+              "api_editable": false,
+              "display_name": "Max loops",
+              "dynamic": false,
+              "info": "How many times each teammate should loop on the task.",
+              "list": false,
+              "list_add_label": "Add More",
+              "name": "max_loops",
+              "override_skip": false,
+              "placeholder": "",
+              "required": false,
+              "show": true,
+              "title_case": false,
+              "tool_mode": false,
+              "trace_as_metadata": true,
+              "track_in_telemetry": true,
+              "type": "int",
+              "value": 1
+            },
+            "task": {
+              "_input_type": "MessageTextInput",
+              "advanced": false,
+              "api_editable": false,
+              "display_name": "What should the team do?",
+              "dynamic": false,
+              "info": "One clear instruction — everyone tackles it at once.",
+              "input_types": [
+                "Message"
+              ],
+              "list": false,
+              "list_add_label": "Add More",
+              "load_from_db": false,
+              "name": "task",
+              "override_skip": false,
+              "placeholder": "Brainstorm 3 different taglines for a local-first AI team product.",
+              "required": true,
+              "show": true,
+              "title_case": false,
+              "tool_mode": false,
+              "trace_as_input": true,
+              "trace_as_metadata": true,
+              "track_in_telemetry": false,
+              "type": "str",
+              "value": ""
+            }
+          },
+          "tool_mode": false
+        },
+        "SequentialWorkflow": {
+          "base_classes": [
+            "Message"
+          ],
+          "beta": false,
+          "conditional_paths": [],
+          "custom_fields": {},
+          "description": "Work passes from one teammate to the next. Perfect for Research → Write → Review. The output of step 1 becomes the input of step 2.",
+          "display_name": "Assembly Line",
+          "documentation": "https://docs.swarms.world/api/sequential-workflow",
+          "edited": false,
+          "field_order": [
+            "agents",
+            "task",
+            "max_loops"
+          ],
+          "frozen": false,
+          "icon": "Swarms",
+          "legacy": false,
+          "metadata": {
+            "code_hash": "290199d9d1ff",
+            "dependencies": {
+              "dependencies": [
+                {
+                  "name": "lfx",
+                  "version": null
+                }
+              ],
+              "total_dependencies": 1
+            },
+            "module": "lfx.components.agentics.sequential_workflow.SequentialWorkflowComponent"
+          },
+          "minimized": false,
+          "output_types": [],
+          "outputs": [
+            {
+              "allows_loop": false,
+              "cache": true,
+              "display_name": "Final Result",
+              "group_outputs": false,
+              "method": "build_workflow",
+              "name": "final_result",
+              "selected": "Message",
+              "tool_mode": true,
+              "types": [
+                "Message"
+              ],
+              "value": "__UNDEFINED__"
+            }
+          ],
+          "pinned": false,
+          "template": {
+            "_type": "Component",
+            "agents": {
+              "_input_type": "HandleInput",
+              "advanced": false,
+              "api_editable": false,
+              "display_name": "Your Team (drag Team Members here, in order)",
+              "dynamic": false,
+              "info": "Drag Team Members here in the order they should work. Example: Researcher → Writer → Editor.",
+              "input_types": [
+                "Agent"
+              ],
+              "list": true,
+              "list_add_label": "Add More",
+              "name": "agents",
+              "override_skip": false,
+              "placeholder": "",
+              "required": true,
+              "show": true,
+              "title_case": false,
+              "trace_as_metadata": true,
+              "track_in_telemetry": false,
+              "type": "other",
+              "value": ""
+            },
+            "code": {
+              "advanced": true,
+              "api_editable": false,
+              "dynamic": true,
+              "fileTypes": [],
+              "file_path": "",
+              "info": "",
+              "list": false,
+              "load_from_db": false,
+              "multiline": true,
+              "name": "code",
+              "password": false,
+              "placeholder": "",
+              "required": true,
+              "show": true,
+              "title_case": false,
+              "type": "code",
+              "value": "\"\"\"Assembly Line — sequential loop over a team of agents.\n\nWork passes from one Team Member to the next in order: the output of\nstep 1 becomes the input of step 2. Mirrors the lfx-swarms\nSequentialWorkflow pattern standalone in lfx.\n\"\"\"\n\nfrom __future__ import annotations\n\nimport json\nfrom typing import Any\n\nfrom lfx.custom.custom_component.component import Component\nfrom lfx.inputs.inputs import HandleInput, IntInput, MessageTextInput\nfrom lfx.io import Output\nfrom lfx.schema.message import Message\n\n\ndef _to_message(value: Any) -> Message:\n    \"\"\"Normalize agent output to Message — mirrors swarms + agentics helpers.\n\n    - Message -> pass through\n    - dict -> json.dumps (preserves structure, avoids str(dict) single-quotes)\n    - list -> json.dumps if items are dicts else str join\n    - else -> Message(text=str(value))\n    \"\"\"\n    if isinstance(value, Message):\n        return value\n    if isinstance(value, dict):\n        return Message(text=json.dumps(value, ensure_ascii=False, indent=2))\n    if isinstance(value, list):\n        try:\n            return Message(text=json.dumps(value, ensure_ascii=False, indent=2))\n        except (TypeError, ValueError):\n            return Message(text=\"\\n\".join(str(v) for v in value))\n    return Message(text=str(value))\n\n\nclass SequentialWorkflowComponent(Component):\n    \"\"\"Work passes from one teammate to the next. Perfect for Research → Write → Review.\"\"\"\n\n    display_name = \"Assembly Line\"\n    description = (\n        \"Work passes from one teammate to the next. Perfect for Research → Write → Review. \"\n        \"The output of step 1 becomes the input of step 2.\"\n    )\n    documentation = \"https://docs.swarms.world/api/sequential-workflow\"\n    icon = \"Swarms\"\n    name = \"SequentialWorkflow\"\n\n    inputs = [\n        HandleInput(\n            name=\"agents\",\n            display_name=\"Your Team (drag Team Members here, in order)\",\n            info=\"Drag Team Members here in the order they should work. Example: Researcher → Writer → Editor.\",\n            input_types=[\"Agent\"],\n            is_list=True,\n            required=True,\n        ),\n        MessageTextInput(\n            name=\"task\",\n            display_name=\"What should the team do?\",\n            info=\"One clear instruction for the whole team.\",\n            placeholder=\"Research the top 3 AI hiring trends and write a short LinkedIn post with sources.\",\n            required=True,\n        ),\n        IntInput(\n            name=\"max_loops\",\n            display_name=\"Max loops\",\n            info=\"How many times the line should run.\",\n            value=1,\n            advanced=True,\n        ),\n    ]\n\n    outputs = [\n        Output(name=\"final_result\", display_name=\"Final Result\", method=\"build_workflow\"),\n    ]\n\n    def _run_one(self, agent: Any, current_input: Any) -> Message:\n        \"\"\"Run one agent against the current input, chaining the result.\"\"\"\n        run = getattr(agent, \"run\", None)\n        if run is None:\n            msg = f\"Agent {agent!r} does not expose a run() method.\"\n            raise ValueError(msg)\n        result = run(current_input)\n        return _to_message(result)\n\n    def build_workflow(self) -> Message:\n        if not self.agents:\n            msg = \"Add at least one Team Member to Your Team.\"\n            raise ValueError(msg)\n        if not self.task or not self.task.strip():\n            msg = \"Tell the team what to do — fill in 'What should the team do?'.\"\n            raise ValueError(msg)\n\n        max_loops = self.max_loops or 1\n        current_input = self.task\n        results: list[Message] = []\n        each: list[dict[str, Any]] = []\n\n        for loop in range(max_loops):\n            for agent in self.agents:\n                result = self._run_one(agent, current_input)\n                results.append(result)\n                each.append({\"agent\": agent, \"loop\": loop, \"result\": result})\n                # Chain output into next agent's input\n                current_input = result.text\n\n        self.status = each\n        final_text = \"\\n---\\n\".join(item.text for item in results)\n        return Message(text=final_text)\n"
+            },
+            "max_loops": {
+              "_input_type": "IntInput",
+              "advanced": true,
+              "api_editable": false,
+              "display_name": "Max loops",
+              "dynamic": false,
+              "info": "How many times the line should run.",
+              "list": false,
+              "list_add_label": "Add More",
+              "name": "max_loops",
+              "override_skip": false,
+              "placeholder": "",
+              "required": false,
+              "show": true,
+              "title_case": false,
+              "tool_mode": false,
+              "trace_as_metadata": true,
+              "track_in_telemetry": true,
+              "type": "int",
+              "value": 1
+            },
+            "task": {
+              "_input_type": "MessageTextInput",
+              "advanced": false,
+              "api_editable": false,
+              "display_name": "What should the team do?",
+              "dynamic": false,
+              "info": "One clear instruction for the whole team.",
+              "input_types": [
+                "Message"
+              ],
+              "list": false,
+              "list_add_label": "Add More",
+              "load_from_db": false,
+              "name": "task",
+              "override_skip": false,
+              "placeholder": "Research the top 3 AI hiring trends and write a short LinkedIn post with sources.",
+              "required": true,
+              "show": true,
+              "title_case": false,
+              "tool_mode": false,
+              "trace_as_input": true,
+              "trace_as_metadata": true,
+              "track_in_telemetry": false,
+              "type": "str",
+              "value": ""
+            }
+          },
+          "tool_mode": false
         }
       }
     ],
@@ -5167,7 +5457,7 @@
               "dependencies": [
                 {
                   "name": "numpy",
-                  "version": "2.4.6"
+                  "version": "2.5.1"
                 },
                 {
                   "name": "lfx",
@@ -6623,7 +6913,7 @@
                 },
                 {
                   "name": "numpy",
-                  "version": "2.4.6"
+                  "version": "2.5.1"
                 }
               ],
               "total_dependencies": 5
@@ -8189,7 +8479,7 @@
               "dependencies": [
                 {
                   "name": "numpy",
-                  "version": "2.4.6"
+                  "version": "2.5.1"
                 },
                 {
                   "name": "langflow",
@@ -31036,9 +31326,9 @@
     ]
   ],
   "metadata": {
-    "num_components": 127,
+    "num_components": 129,
     "num_modules": 16
   },
-  "sha256": "3aff0c15487215baf3250e716d0cbd73ccad88d05ba3e244ef2b7a20026f1ca1",
+  "sha256": "35e88af90e8febdb60ecc428c45c7e562206900b5f61a160aface3e00a738d0a",
   "version": "1.12.0"
 }

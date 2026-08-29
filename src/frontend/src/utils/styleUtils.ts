@@ -452,6 +452,7 @@ export const SIDEBAR_BUNDLES = [
   { display_name: "Confluence", name: "confluence", icon: "Confluence" },
   { display_name: "Couchbase", name: "couchbase", icon: "Couchbase" },
   { display_name: "CrewAI", name: "crewai", icon: "CrewAI" },
+  { display_name: "Swarms — AI Teams", name: "swarms", icon: "Swarms" },
   { display_name: "CUGA", name: "cuga", icon: "Bot" },
   { display_name: "DataStax", name: "datastax", icon: "AstraDB" },
   { display_name: "DeepSeek", name: "deepseek", icon: "DeepSeek" },

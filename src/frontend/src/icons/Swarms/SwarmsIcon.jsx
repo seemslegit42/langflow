@@ -1,0 +1,25 @@
+const SvgSwarmsIcon = (props) => (
+  <svg
+    width="32"
+    height="32"
+    viewBox="0 0 32 32"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    {...props}
+  >
+    <rect width="32" height="32" rx="6" fill="#FF6B35" />
+    <g transform="translate(6,6)">
+      <circle cx="10" cy="10" r="8" fill="none" stroke="white" strokeWidth="1.5" />
+      <circle cx="10" cy="10" r="3" fill="white" />
+      <circle cx="4" cy="6" r="2" fill="white" opacity="0.9" />
+      <circle cx="16" cy="6" r="2" fill="white" opacity="0.9" />
+      <circle cx="4" cy="14" r="2" fill="white" opacity="0.9" />
+      <circle cx="16" cy="14" r="2" fill="white" opacity="0.9" />
+      <path d="M7 8 L9 9.5" stroke="white" strokeWidth="1" opacity="0.6" />
+      <path d="M13 8 L11 9.5" stroke="white" strokeWidth="1" opacity="0.6" />
+      <path d="M7 12 L9 10.5" stroke="white" strokeWidth="1" opacity="0.6" />
+      <path d="M13 12 L11 10.5" stroke="white" strokeWidth="1" opacity="0.6" />
+    </g>
+  </svg>
+);
+export default SvgSwarmsIcon;
